@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Ideas - TheMealDB</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: #ff7043;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 15px;
+    }
+
+    .search-box {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 70%;
+      padding: 10px;
+      border: 2px solid #ccc;
+      border-radius: 5px 0 0 5px;
+      outline: none;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #ff7043;
+      color: white;
+      border: none;
+      border-radius: 0 5px 5px 0;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #ff5722;
+    }
+
+    .meals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .meal {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      overflow: hidden;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .meal:hover {
+      transform: scale(1.05);
+    }
+
+    .meal img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+    }
+
+    .meal h3 {
+      padding: 10px;
+      font-size: 18px;
+      color: #333;
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      width: 90%;
+      max-width: 600px;
+      border-radius: 10px;
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 80vh;
+    }
+
+    .modal img {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .close {
+      background: #ff7043;
+      color: white;
+      border: none;
+      float: right;
+      font-size: 16px;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+
+    .instructions {
+      white-space: pre-wrap;
+      margin-top: 10px;
+      text-align: left;
+    }
+
+    @media (max-width: 600px) {
+      input { width: 60%; }
+      button { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🍽 Recipe Ideas</h1>
+    <p>Search meals by ingredient using TheMealDB</p>
+  </header>
+
+  <div class="container">
+    <div class="search-box">
+      <input type="text" id="ingredientInput" placeholder="Enter an ingredient (e.g. chicken, egg, tomato)">
+      <button onclick="searchMeals()">Search</button>
+    </div>
+
+    <div id="mealsContainer" class="meals"></div>
+  </div>
+
+  <!-- Modal -->
+  <div id="mealModal" class="modal">
+    <div class="modal-content">
+      <button class="close" onclick="closeModal()">Close</button>
+      <div id="mealDetails"></div>
+    </div>
+  </div>
+
+  <script>
+    async function searchMeals() {
+      const ingredient = document.getElementById("ingredientInput").value.trim();
+      const mealsContainer = document.getElementById("mealsContainer");
+      mealsContainer.innerHTML = "";
+
+      if (!ingredient) {
+        alert("Please enter an ingredient!");
+        return;
+      }
+
+      try {
+        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${ingredient}`);
+        const data = await response.json();
+
+        if (!data.meals) {
+          mealsContainer.innerHTML = "<p>No recipes found. Try another ingredient!</p>";
+          return;
+        }
+
+        data.meals.forEach(meal => {
+          const mealDiv = document.createElement("div");
+          mealDiv.classList.add("meal");
+          mealDiv.innerHTML = `
+            <img src="${meal.strMealThumb}" alt="${meal.strMeal}">
+            <h3>${meal.strMeal}</h3>
+          `;
+          mealDiv.onclick = () => showMealDetails(meal.idMeal);
+          mealsContainer.appendChild(mealDiv);
+        });
+      } catch (error) {
+        console.error("Error fetching meals:", error);
+        mealsContainer.innerHTML = "<p>Something went wrong. Please try again later.</p>";
+      }
+    }
+
+    async function showMealDetails(mealId) {
+      const modal = document.getElementById("mealModal");
+      const detailsDiv = document.getElementById("mealDetails");
+      detailsDiv.innerHTML = "Loading...";
+      modal.style.display = "flex";
+
+      try {
+        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`);
+        const data = await response.json();
+        const meal = data.meals[0];
+
+        const ingredients = [];
+        for (let i = 1; i <= 20; i++) {
+          const ing = meal[`strIngredient${i}`];
+          const measure = meal[`strMeasure${i}`];
+          if (ing) ingredients.push(`${measure} ${ing}`);
+        }
+
+        detailsDiv.innerHTML = `
+          <h2>${meal.strMeal}</h2>
+          <img src="${meal.strMealThumb}" alt="${meal.strMeal}">
+          <p><strong>Category:</strong> ${meal.strCategory || 'N/A'}</p>
+          <p><strong>Area:</strong> ${meal.strArea || 'N/A'}</p>
+          <h3>Ingredients:</h3>
+          <ul>${ingredients.map(i => `<li>${i}</li>`).join("")}</ul>
+          <h3>Instructions:</h3>
+          <div class="instructions">${meal.strInstructions}</div>
+          ${meal.strYoutube ? `<p><a href="${meal.strYoutube}" target="_blank">🎥 Watch on YouTube</a></p>` : ""}
+        `;
+      } catch (error) {
+        detailsDiv.innerHTML = "<p>Failed to load details. Try again.</p>";
+      }
+    }
+
+    function closeModal() {
+      document.getElementById("mealModal").style.display = "none";
+    }
+  </script>
+
+</body>
+</html>
